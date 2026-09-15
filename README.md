@@ -1,3 +1,14 @@
+> ### 🗄️ Архив — версия 1
+>
+> Это первая версия проекта, сделанная под **чемпионат мира 2026**: прогнозы на матчи сборных, групповой этап и сетка плей-офф. Она свою задачу отработала и больше не развивается.
+>
+> Актуальная версия — **UEFA Predict 26/27** — переработана под клубные еврокубки: Лига чемпионов, Лига Европы и Лига конференций в одном приложении, общий рейтинг с разбивкой очков по турнирам и автоматическое обновление результатов. Смотреть в ветке [`main`](../../tree/main).
+>
+> ---
+> ### 🗄️ Archive — version 1
+>
+> The original **FIFA World Cup 2026** edition. Superseded by **UEFA Predict 26/27**, the club-competition rework on the [`main`](../../tree/main) branch.
+
 # 🏆 World Cup 2026 Predictions App
 
 An offline-first, mobile-designed progressive web application (PWA) made for predictions, friendly leagues, and leaderboard tracking during the **FIFA World Cup 2026**. 
