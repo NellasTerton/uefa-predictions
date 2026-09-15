@@ -1,0 +1,6 @@
+{
+  "name": "UEFA Predict 26/27",
+  "description": "Mobile-first PWA prediction web application for the UEFA Champions League, Europa League and Conference League with League Phase standings, Leaderboards, and match forecasts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

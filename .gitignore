@@ -1,0 +1,34 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# One-off scripts left over from the AI Studio iteration and the World Cup ->
+# UEFA conversion. Kept on disk, out of the repository: none of them are part
+# of the build, and the only generator still in use is
+# generate_competitions.js.
+fix_*.js
+patch_*.js
+test*.js
+check_*.js
+fetch_*.js
+get_logos.js
+update_*.js
+inject.js
+bypass.js
+revert.js
+rewrite_app.js
+restore_groups.js
+reseed_supabase.js
+clear_scores.js
+generate_matches.js
+generate_real_data.js
+generated_matches.json
+badges.json
+
+# Local editor/agent config
+.claude/

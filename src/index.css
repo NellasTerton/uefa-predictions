@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Custom Scrollbars */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: rgba(12, 20, 43, 0.3);
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.2);
+  border-radius: 9999px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.4);
+}
+
+
+/* ---------------------------------------------------------------------------
+   Prediction confirmation burst.
+   Fires the moment a forecast is submitted, before the network round trip, so
+   the feedback never waits on the database. Whole thing is under a second.
+--------------------------------------------------------------------------- */
+
+@keyframes betPop {
+  0%   { transform: scale(0.3); opacity: 0; }
+  45%  { transform: scale(1.12); opacity: 1; }
+  70%  { transform: scale(0.97); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes betRing {
+  0%   { transform: scale(0.5); opacity: 0.85; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+@keyframes betRise {
+  0%   { transform: translateY(14px); opacity: 0; }
+  35%  { transform: translateY(0); opacity: 1; }
+  80%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes betSpark {
+  0%   { transform: translate(0, 0) scale(0.2); opacity: 0; }
+  25%  { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(1); opacity: 0; }
+}
+
+@keyframes betFlash {
+  0%   { opacity: 0; }
+  20%  { opacity: 0.5; }
+  100% { opacity: 0; }
+}
+
+.animate-bet-pop   { animation: betPop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.animate-bet-ring  { animation: betRing 700ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-bet-rise  { animation: betRise 900ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-bet-spark { animation: betSpark 750ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-bet-flash { animation: betFlash 600ms ease-out both; }
+
+/* Respect users who asked the system to cut animation down. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-bet-pop,
+  .animate-bet-ring,
+  .animate-bet-rise,
+  .animate-bet-spark,
+  .animate-bet-flash {
+    animation-duration: 1ms;
+    animation-iteration-count: 1;
+  }
+}

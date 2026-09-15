@@ -1,0 +1,21 @@
+{
+  "name": "UEFA Predict 26/27",
+  "short_name": "UEFA Predict",
+  "description": "Прогнозы на Лигу чемпионов, Лигу Европы и Лигу конференций 2026/27",
+  "lang": "ru",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#060b1b",
+  "theme_color": "#060b1b",
+  "categories": ["sports", "games"],
+  "icons": [
+    {
+      "src": "https://i.ibb.co/twXg7ycM/Chat-GPT-Image-10-2026-18-35-27-removebg-preview.png",
+      "sizes": "500x500",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
