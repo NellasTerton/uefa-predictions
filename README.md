@@ -4,6 +4,8 @@
 
 A mobile-first PWA for friendly football forecasting: the Champions League, Europa League and Conference League of season 2026/27 in one app, with a shared leaderboard and a per-tournament breakdown of points.
 
+![UEFA Predict 26/27 — таблица общего этапа, матчи и рейтинг с разбивкой по турнирам](docs/preview.png)
+
 ---
 
 ## 🔀 Версии проекта / Project versions
