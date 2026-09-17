@@ -8,7 +8,33 @@
  */
 import fs from 'fs';
 
-const SEASON_RANGE = '20260901-20270630';
+// ESPN rejects a full-season date range and answers `dates=YYYYMM` with the
+// whole month, so the season is walked month by month.
+const SEASON_MONTHS = [
+  '202609', '202610', '202611', '202612',
+  '202701', '202702', '202703', '202704', '202705', '202706',
+];
+
+// site.api.espn.com started answering 403 to every caller; this host still
+// serves the same payload. Kept as a list so a future switch is one line.
+const ESPN_HOSTS = [
+  'https://site.web.api.espn.com',
+  'https://site.api.espn.com',
+];
+
+const BROWSER_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+    '(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+  Accept: 'application/json, text/plain, */*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  Referer: 'https://www.espn.com/',
+};
+
+// Expected shape of a league phase. A run that falls short of this is treated
+// as a bad source rather than written over a good dataset.
+const MIN_TEAMS_PER_COMPETITION = 30;
+const MIN_LEAGUE_FIXTURES = { UCL: 144, UEL: 144, UECL: 108 };
 
 const COMPETITIONS = [
   {
@@ -88,15 +114,34 @@ function abbrOf(team) {
   return (team.displayName || team.name || 'UNK').substring(0, 3).toUpperCase();
 }
 
-async function loadCompetition(comp) {
-  const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${comp.slug}/scoreboard?dates=${SEASON_RANGE}&limit=500`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`${comp.id}: ESPN responded ${res.status}`);
-  const data = await res.json();
+async function fetchMonth(slug, month) {
+  const failures = [];
+  for (const host of ESPN_HOSTS) {
+    const url = `${host}/apis/site/v2/sports/soccer/${slug}/scoreboard?dates=${month}`;
+    try {
+      const res = await fetch(url, { headers: BROWSER_HEADERS });
+      if (!res.ok) {
+        failures.push(`${res.status} @ ${new URL(url).host}`);
+        continue;
+      }
+      const data = await res.json();
+      return data.events || [];
+    } catch (err) {
+      failures.push(`${err.message} @ ${new URL(url).host}`);
+    }
+  }
+  throw new Error(`${month}: ${failures.join(' | ')}`);
+}
 
-  const events = (data.events || [])
-    .slice()
-    .sort((a, b) => new Date(a.date) - new Date(b.date));
+async function loadCompetition(comp) {
+  const collected = new Map();
+  for (const month of SEASON_MONTHS) {
+    for (const ev of await fetchMonth(comp.slug, month)) {
+      collected.set(ev.id, ev);
+    }
+  }
+
+  const events = [...collected.values()].sort((a, b) => new Date(a.date) - new Date(b.date));
 
   const teams = {};
   const matches = [];
@@ -205,6 +250,21 @@ async function run() {
 
   for (const comp of COMPETITIONS) {
     const { teams, matches } = await loadCompetition(comp);
+
+    // Guard against a degraded source silently replacing a good dataset:
+    // better to fail loudly than to publish half a season.
+    const leagueFixtures = matches.filter((m) => !m.group).length;
+    if (Object.keys(teams).length < MIN_TEAMS_PER_COMPETITION) {
+      throw new Error(
+        `${comp.id}: only ${Object.keys(teams).length} teams, expected at least ${MIN_TEAMS_PER_COMPETITION}. Refusing to write.`
+      );
+    }
+    if (leagueFixtures < MIN_LEAGUE_FIXTURES[comp.id]) {
+      throw new Error(
+        `${comp.id}: only ${leagueFixtures} league-phase fixtures, expected ${MIN_LEAGUE_FIXTURES[comp.id]}. Refusing to write.`
+      );
+    }
+
     Object.assign(allTeams, teams);
     allMatches.push(...matches);
     const finished = matches.filter((m) => m.status === 'FINISHED').length;

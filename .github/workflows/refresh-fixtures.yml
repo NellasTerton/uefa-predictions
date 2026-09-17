@@ -1,0 +1,56 @@
+name: Refresh fixtures
+
+# Regenerates the season snapshot (src/data.ts) from ESPN and commits it when
+# anything changed. Pushing to main makes Vercel rebuild, so newly drawn
+# knockout fixtures reach the app without anyone doing it by hand.
+#
+# The generator refuses to write a dataset that is short on teams or fixtures,
+# so a degraded or blocked source fails the job instead of publishing half a
+# season over a good one.
+
+on:
+  schedule:
+    # 05:20 UTC — after the nightly match window has settled, before the day starts.
+    - cron: "20 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-fixtures
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Regenerate the season snapshot
+        run: node generate_competitions.js
+
+      - name: Check the snapshot still compiles
+        run: |
+          npm ci
+          npx tsc --noEmit
+
+      - name: Commit if anything changed
+        run: |
+          if git diff --quiet -- src/data.ts; then
+            echo "Fixtures unchanged, nothing to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data.ts
+          git commit -m "Refresh fixtures from ESPN
+
+          Automated run of generate_competitions.js."
+          git push
