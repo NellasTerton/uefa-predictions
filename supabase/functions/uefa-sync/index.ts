@@ -20,8 +20,24 @@ const COMPETITIONS = [
   { id: "UECL", slug: "uefa.europa.conf" },
 ];
 
-// League phase of season 2026/27.
-const SEASON_RANGE = "20260901-20270630";
+// ESPN accepts `dates=YYYYMM` and answers with the whole month. A full-season
+// range (`dates=A-B`) is rejected by this host, and the host that did accept it
+// (site.api.espn.com) now answers 403 to everyone, so the sync walks months.
+function monthsToSync(now: Date): string[] {
+  const stamp = (d: Date) =>
+    `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+
+  const current = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  const months = [stamp(current), stamp(next)];
+
+  // Early in a month, results from the tail of the previous one may still be
+  // settling, so pick it up too.
+  if (now.getUTCDate() <= 5) {
+    months.unshift(stamp(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1))));
+  }
+  return months;
+}
 
 // Every matchday is exactly 18 fixtures in one date cluster, so chunking the
 // date-sorted list reproduces the official round numbering (ESPN exposes none).
@@ -114,21 +130,20 @@ const BROWSER_HEADERS = {
 };
 
 /**
- * ESPN refuses Deno's default user agent from datacenter IPs, and the two API
- * hostnames are not equally permissive. Try each in turn and use whichever
- * answers, so one of them going strict does not stop the sync.
+ * ESPN blocks datacenter traffic on some of its hostnames, and site.api.espn.com
+ * now answers 403 to everyone. Try the hosts in turn and use whichever answers,
+ * so one of them going strict does not stop the sync.
  */
-async function fetchEspn(slug: string): Promise<any> {
-  const paths = [
-    `https://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?dates=${SEASON_RANGE}&limit=500`,
-    `http://site.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?dates=${SEASON_RANGE}&limit=500`,
-    `https://site.web.api.espn.com/apis/site/v2/sports/soccer/${slug}/scoreboard?dates=${SEASON_RANGE}&limit=500`,
-    `https://cdn.espn.com/core/soccer/scoreboard?xhr=1&league=${slug}&dates=${SEASON_RANGE}&limit=500`,
+async function fetchEspnMonth(slug: string, month: string): Promise<any[]> {
+  const hosts = [
+    "https://site.web.api.espn.com",
+    "https://site.api.espn.com",
   ];
 
   const failures: string[] = [];
 
-  for (const url of paths) {
+  for (const host of hosts) {
+    const url = `${host}/apis/site/v2/sports/soccer/${slug}/scoreboard?dates=${month}`;
     try {
       const res = await fetch(url, { headers: BROWSER_HEADERS });
       if (!res.ok) {
@@ -136,31 +151,26 @@ async function fetchEspn(slug: string): Promise<any> {
         continue;
       }
       const json = await res.json();
-      // cdn.espn.com wraps the payload one level deeper.
-      const events = json.events || json.content?.sbData?.events;
-      if (Array.isArray(events) && events.length > 0) return events;
-      failures.push(`empty @ ${new URL(url).host}`);
+      // An empty month is a valid answer, not a failure.
+      return json.events || [];
     } catch (err) {
       failures.push(`${(err as Error).message} @ ${new URL(url).host}`);
     }
   }
 
-  throw new Error(failures.join(" | "));
+  throw new Error(`${month}: ${failures.join(" | ")}`);
 }
 
-async function loadCompetition(comp: { id: string; slug: string }) {
-  const rawEvents = await fetchEspn(comp.slug);
+async function loadCompetition(comp: { id: string; slug: string }, months: string[]) {
+  const events: any[] = [];
+  for (const month of months) {
+    events.push(...(await fetchEspnMonth(comp.slug, month)));
+  }
 
-  const events = rawEvents
-    .slice()
-    .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-  let leaguePhaseIndex = 0;
-
-  return events.map((ev: any) => {
-    const competition = ev.competitions[0];
-    const home = competition.competitors.find((c: any) => c.homeAway === "home");
-    const away = competition.competitors.find((c: any) => c.homeAway === "away");
+  const rows = events.map((ev: any) => {
+    const competition = ev.competitions?.[0];
+    const home = competition?.competitors?.find((c: any) => c.homeAway === "home");
+    const away = competition?.competitors?.find((c: any) => c.homeAway === "away");
     if (!home || !away) return null;
 
     const status = normalizeStatus(ev.status?.type?.name);
@@ -169,18 +179,13 @@ async function loadCompetition(comp: { id: string; slug: string }) {
       return Number.isNaN(n) ? null : n;
     };
 
-    const group = playoffGroupOf(ev);
-    let matchday: number | null = null;
-    if (group === null) {
-      matchday = Math.floor(leaguePhaseIndex / MATCHES_PER_MATCHDAY) + 1;
-      leaguePhaseIndex += 1;
-    }
-
+    // `matchday` is deliberately absent: a month slice cannot reproduce the
+    // round numbering, and on conflict PostgREST only writes the columns sent,
+    // so the value already stored survives. New knockout rows have none anyway.
     return {
       id: parseInt(ev.id, 10),
       competition: comp.id,
-      matchday,
-      group_name: group ?? "League Phase",
+      group_name: playoffGroupOf(ev) ?? "League Phase",
       home_team: home.team.displayName || home.team.name,
       away_team: away.team.displayName || away.team.name,
       home_flag: teamLogo(home.team),
@@ -193,6 +198,11 @@ async function loadCompetition(comp: { id: string; slug: string }) {
       away_score: status === "pending" ? null : parseScore(away),
     };
   }).filter(Boolean);
+
+  // A month can be returned more than once across overlapping windows.
+  const byId = new Map<number, any>();
+  rows.forEach((r: any) => byId.set(r.id, r));
+  return [...byId.values()];
 }
 
 serve(async (req) => {
@@ -216,12 +226,13 @@ serve(async (req) => {
 
     // 1. Pull all three competitions. One failing source must not take the
     //    other two down with it.
+    const months = monthsToSync(new Date());
     const rows: any[] = [];
     const sourceErrors: string[] = [];
 
     for (const comp of COMPETITIONS) {
       try {
-        rows.push(...(await loadCompetition(comp)));
+        rows.push(...(await loadCompetition(comp, months)));
       } catch (err) {
         console.error(`Failed to load ${comp.id}:`, (err as Error).message);
         sourceErrors.push(`${comp.id}: ${(err as Error).message}`);
@@ -243,14 +254,23 @@ serve(async (req) => {
       throw new Error(`Failed to upsert matches: ${upsertError.message}`);
     }
 
-    // 3. Re-score every prediction on a finished match. Recomputing all of them
-    //    rather than only the newly finished ones keeps the table self-healing
-    //    if a run was ever missed or a score was corrected afterwards.
-    const finished = rows.filter(
-      (m) => m.status === "finished" && m.home_score !== null && m.away_score !== null,
-    );
+    // 3. Re-score every prediction on a finished match. The results are read
+    //    back from the database rather than from this run's slice, so a match
+    //    settled in a month we no longer fetch still scores correctly.
+    const { data: finishedRows, error: finishedError } = await supabase
+      .from("matches")
+      .select("id, home_score, away_score")
+      .eq("status", "finished")
+      .not("home_score", "is", null)
+      .not("away_score", "is", null);
+
+    if (finishedError) {
+      throw new Error(`Failed to read finished matches: ${finishedError.message}`);
+    }
+
+    const finished = finishedRows || [];
     const resultById = new Map<number, { home: number; away: number }>();
-    finished.forEach((m) => resultById.set(m.id, { home: m.home_score, away: m.away_score }));
+    finished.forEach((m: any) => resultById.set(m.id, { home: m.home_score, away: m.away_score }));
 
     let rescored = 0;
 
@@ -258,7 +278,7 @@ serve(async (req) => {
       const { data: predictions, error: predError } = await supabase
         .from("predictions")
         .select("*")
-        .in("match_id", finished.map((m) => m.id));
+        .in("match_id", finished.map((m: any) => m.id));
 
       if (predError) {
         throw new Error(`Failed to read predictions: ${predError.message}`);
@@ -324,6 +344,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
+        months,
         fixtures: rows.length,
         finished: finished.length,
         rescoredPredictions: rescored,
