@@ -382,7 +382,7 @@ const RAW_MATCHES: RawMatch[] = [
   ["401915524", "UEL", 4, null, "2026-11-05T20:00Z", "UEL:STG", "UEL:NKC", 0, 0, "Merkur Arena", "PENDING"],
   ["401915523", "UEL", 4, null, "2026-11-05T20:00Z", "UEL:SUN", "UEL:DZG", 0, 0, "Stadium of Light", "PENDING"],
   ["401915530", "UEL", 4, null, "2026-11-05T20:00Z", "UEL:TOR", "UEL:ARA", 0, 0, "Estádio Dr. Magalhaes Pessoa", "PENDING"],
-  ["401915506", "UEL", 5, null, "2026-11-26T17:45Z", "UEL:BES", "UEL:HBE", 0, 0, "Vodafone Park", "PENDING"],
+  ["401915506", "UEL", 5, null, "2026-11-26T17:45Z", "UEL:BES", "UEL:HBE", 0, 0, "Batumi Stadium (Adjarabet Arena)", "PENDING"],
   ["401915519", "UEL", 5, null, "2026-11-26T17:45Z", "UEL:CEL", "UEL:BOU", 0, 0, "Balaidos", "PENDING"],
   ["401915517", "UEL", 5, null, "2026-11-26T17:45Z", "UEL:DZG", "UEL:B04", 0, 0, "Maksimir Stadium", "PENDING"],
   ["401915507", "UEL", 5, null, "2026-11-26T17:45Z", "UEL:OLM", "UEL:LEV", 0, 0, "Stade Vélodrome", "PENDING"],
